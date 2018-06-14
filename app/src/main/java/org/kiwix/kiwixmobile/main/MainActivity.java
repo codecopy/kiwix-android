@@ -37,10 +37,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.NonNull;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
-import android.support.design.widget.TabLayout;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
@@ -48,6 +46,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.view.menu.ActionMenuItemView;
+import android.support.v7.widget.CardView;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
@@ -57,7 +56,6 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.KeyEvent;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -103,6 +101,8 @@ import javax.inject.Inject;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import butterknife.OnClick;
+import butterknife.OnLongClick;
 import okhttp3.OkHttpClient;
 
 import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
@@ -247,7 +247,11 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
 
   @BindView(R.id.action_forward) View tabForwardButtonContainer;
 
-  @BindView(R.id.page_bottom_tab_layout) TabLayout pageBottomTabLayout;
+  @BindView(R.id.bottom_toolbar)
+  CardView bottomToolbar;
+
+  @BindView(R.id.bottom_toolbar_bookmark)
+  ImageView bookmark;
 
   @Inject OkHttpClient okHttpClient;
 
@@ -286,62 +290,6 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
           });
     }
   }
-
-  @NonNull
-  private final TabLayout.OnTabSelectedListener pageBottomTabListener
-          = new TabLayout.OnTabSelectedListener() {
-    @Override
-    public void onTabSelected(TabLayout.Tab tab) {
-      PageBottomTab.of(tab.getPosition()).select(pageActionTabsCallback);
-    }
-
-    @Override
-    public void onTabUnselected(TabLayout.Tab tab) {}
-
-    @Override
-    public void onTabReselected(TabLayout.Tab tab) {
-      onTabSelected(tab);
-    }
-  };
-
-  private PageBottomTab.Callback pageActionTabsCallback = new PageBottomTab.Callback() {
-    @Override
-    public void onHomeTabSelected() {
-      openMainPage();
-    }
-
-    @Override
-    public void onFindInPageTabSelected() {
-      compatCallback.setActive();
-      compatCallback.setWebView(getCurrentWebView());
-      startSupportActionMode(compatCallback);
-      compatCallback.showSoftInput();
-    }
-
-    @Override
-    public void onFullscreenTabSelected() {
-      if (isFullscreenOpened) {
-        closeFullScreen();
-      } else {
-        openFullScreen();
-      }
-    }
-
-    @Override
-    public void onRandomArticleTabSelected() {
-      openRandomArticle();
-    }
-
-    @Override
-    public void onBookmarkTabSelected() {
-      toggleBookmark();
-    }
-
-    @Override
-    public void onBookmarkTabLongClicked() {
-      goToBookmarks();
-    }
-  };
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -483,18 +431,6 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
       startActivity(zimFile);
     }
 
-    pageBottomTabLayout.addOnTabSelectedListener(pageBottomTabListener);
-
-    View bookmarkTabView = LayoutInflater.from(MainActivity.this)
-            .inflate(R.layout.bookmark_tab, null);
-    bookmarkTabView.setOnClickListener(view -> PageBottomTab.of(4).select(pageActionTabsCallback));
-    bookmarkTabView.setOnLongClickListener(view -> {
-      PageBottomTab.of(4).longClick(pageActionTabsCallback);
-      return true;
-    });
-
-    pageBottomTabLayout.getTabAt(4).setCustomView(bookmarkTabView);
-
     wasHideToolbar = isHideToolbar;
 
     if (nightMode) {
@@ -502,6 +438,25 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
     } else {
       backToTopAppearDaily();
     }
+  }
+
+  @OnClick(R.id.bottom_toolbar_arrow_back)
+  void goBack() {
+    if (getCurrentWebView().canGoBack()) {
+      getCurrentWebView().goBack();
+    }
+  }
+
+  @OnClick(R.id.bottom_toolbar_arrow_forward)
+  void goForward() {
+    if (getCurrentWebView().canGoForward()) {
+      getCurrentWebView().goForward();
+    }
+  }
+
+  @OnClick(R.id.bottom_toolbar_toc)
+  void openToc() {
+    drawerLayout.openDrawer(GravityCompat.END);
   }
 
   private void backToTopAppearDaily() {
@@ -708,7 +663,7 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
     AttributeSet attrs = StyleUtils.getAttributes(this, R.xml.webview);
     KiwixWebView webView;
     if (!isHideToolbar) {
-      webView = new ToolbarScrollingKiwixWebView(MainActivity.this, this, toolbarContainer, pageBottomTabLayout , attrs);
+      webView = new ToolbarScrollingKiwixWebView(MainActivity.this, this, toolbarContainer, bottomToolbar, attrs);
       ((ToolbarScrollingKiwixWebView) webView).setOnToolbarVisibilityChangeListener(
           new ToolbarScrollingKiwixWebView.OnToolbarVisibilityChangeListener() {
             @Override
@@ -891,17 +846,19 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
     return super.onOptionsItemSelected(item);
   }
 
-  private void goToBookmarks() {
+  @OnLongClick(R.id.bottom_toolbar_bookmark)
+  boolean goToBookmarks() {
     saveTabStates();
     Intent intentBookmarks = new Intent(getBaseContext(), BookmarksActivity.class);
     // FIXME: Looks like EXTRA below isn't used anywhere?
     intentBookmarks.putExtra(EXTRA_BOOKMARK_CONTENTS, bookmarks);
     startActivityForResult(intentBookmarks, BOOKMARK_CHOSEN_REQUEST);
+    return true;
   }
 
   private void openFullScreen() {
     toolbarContainer.setVisibility(View.GONE);
-    pageBottomTabLayout.setVisibility(View.GONE);
+    bottomToolbar.setVisibility(View.GONE);
     if(menuBookmarks != null)
       menuBookmarks.setVisible(true);
     exitFullscreenButton.setVisibility(View.VISIBLE);
@@ -922,7 +879,7 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
   private void closeFullScreen() {
     toolbarContainer.setVisibility(View.VISIBLE);
     if (sharedPreferenceUtil.getPrefBottomToolbar()) {
-      pageBottomTabLayout.setVisibility(View.VISIBLE);
+      bottomToolbar.setVisibility(View.VISIBLE);
       menuBookmarks.setVisible(false);
     }
     exitFullscreenButton.setVisibility(View.INVISIBLE);
@@ -1170,6 +1127,7 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
     return false;
   }
 
+  @OnClick(R.id.bottom_toolbar_bookmark)
   public void toggleBookmark() {
     //Check maybe need refresh
     String article = getCurrentWebView().getUrl();
@@ -1238,12 +1196,12 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
     }
 
     if (sharedPreferenceUtil.getPrefBottomToolbar()) {
-      pageBottomTabLayout.setVisibility(View.VISIBLE);
+      bottomToolbar.setVisibility(View.VISIBLE);
       if (menuBookmarks != null) {
         menuBookmarks.setVisible(false);
       }
     } else {
-      pageBottomTabLayout.setVisibility(View.GONE);
+      bottomToolbar.setVisibility(View.GONE);
       if (menuBookmarks != null) {
         menuBookmarks.setVisible(true);
       }
@@ -1326,8 +1284,12 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
 
   // TODO: change saving bookbark by zim name not id
   private void saveBookmark(String articleUrl, String articleTitle) {
-    bookmarksDao.saveBookmark(articleUrl, articleTitle, ZimContentProvider.getId(), ZimContentProvider.getName());
-    refreshBookmarks();
+    if (ZimContentProvider.getId() != null) {
+      bookmarksDao.saveBookmark(articleUrl, articleTitle, ZimContentProvider.getId(), ZimContentProvider.getName());
+      refreshBookmarks();
+    } else {
+      Toast.makeText(this, R.string.unable_to_add_to_bookmarks, Toast.LENGTH_SHORT).show();
+    }
   }
 
   private void deleteBookmark(String article) {
@@ -1365,9 +1327,10 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
     return openArticle(articleUrl);
   }
 
-  public boolean openMainPage() {
+  @OnClick(R.id.bottom_toolbar_home)
+  public void openMainPage() {
     String articleUrl = ZimContentProvider.getMainPage();
-    return openArticle(articleUrl);
+    openArticle(articleUrl);
   }
 
   public void readAloud() {
@@ -1599,27 +1562,26 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
       bookmarks = bookmarksDao.getBookmarks(ZimContentProvider.getId(), ZimContentProvider.getName());
     }
 
-    TabLayout.Tab bookmarkTab = pageBottomTabLayout.getTabAt(4);
 
     if (menu.findItem(R.id.menu_bookmarks) != null &&
         getCurrentWebView().getUrl() != null &&
         ZimContentProvider.getId() != null &&
         !getCurrentWebView().getUrl().equals("file:///android_asset/help.html")) {
-      int icon = bookmarks.contains(getCurrentWebView().getUrl()) ? R.drawable.action_bookmark_active : R.drawable.action_bookmark;
+      int icon = bookmarks.contains(getCurrentWebView().getUrl()) ? R.drawable.ic_bookmark_24dp : R.drawable.ic_bookmark_border_24dp;
 
       menu.findItem(R.id.menu_bookmarks)
               .setEnabled(true)
               .setIcon(icon)
               .getIcon().setAlpha(255);
 
-      bookmarkTab.getCustomView().findViewById(R.id.bookmark_tab_icon).setBackgroundResource(icon);
+      bookmark.setImageResource(icon);
     } else {
       menu.findItem(R.id.menu_bookmarks)
               .setEnabled(false)
-              .setIcon(R.drawable.action_bookmark)
+          .setIcon(R.drawable.ic_bookmark_border_24dp)
               .getIcon().setAlpha(130);
 
-      bookmarkTab.getCustomView().findViewById(R.id.bookmark_tab_icon).setBackgroundResource(R.drawable.action_bookmark);
+      bookmark.setImageResource(R.drawable.ic_bookmark_border_24dp);
     }
   }
 
@@ -1949,5 +1911,4 @@ public class MainActivity extends BaseActivity implements WebViewCallback {
       dialog.show();
     }
   }
-
 }

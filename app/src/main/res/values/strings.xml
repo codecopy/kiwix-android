@@ -172,7 +172,7 @@
   <string name="no_items_msg">No items available</string>
   <string name="ongoing_download_channel_name">Ongoing Downloads</string>
   <string name="ongoing_download_channel_desc">Category for ongoing zim file downloads.</string>
-  <string name="crash_title">Well... This is Embarrassing</string>
+  <string name="crash_title">Well… This is Embarrassing</string>
   <string name="crash_description">It looks like we crashed.\n\nWould you mind helping us fix this problem by sending the following information?</string>
   <string name="crash_checkbox_language">Your Language Settings</string>
   <string name="crash_checkbox_zimfiles">A List of Your Zim Files</string>
@@ -184,4 +184,5 @@
   <string name="shortcut_disabled_message">Shortcut not available</string>
   <string name="new_tab_shortcut_label">New tab</string>
   <string name="get_content_shortcut_label">Get content</string>
+  <string name="unable_to_add_to_bookmarks">Unable to add to bookmarks</string>
 </resources>
